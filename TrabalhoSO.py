@@ -47,3 +47,23 @@ def criar_arquivo(self, nome, tamanho):
         arq = Arquivo(nome, tamanho, m, blocos)       # Cria arquivo
     self.diretorio[nome] = arq  # Adiciona ao diretório
     print(f"Arquivo '{nome}' criado ({m}): {arq.blocos if m!='indexada' else f'índice {idx}, dados {dados}'}")
+    
+# Estende um arquivo existente, aumentando seu tamanho
+def estender_arquivo(self, nome, extra):
+    arq = self.diretorio.get(nome)  # Busca arquivo no diretório
+    if not arq or extra <= 0: print("Arquivo não existe ou tamanho inválido."); return
+    m = arq.metodo
+    if m == "contigua":
+        # Só pode estender se houver espaço contíguo após o último bloco
+        ult = arq.blocos[-1]
+        novos = [ult+i for i in range(1, extra+1) if ult+i < self.disco.tamanho and self.disco.blocos[ult+i] is None]
+        if len(novos) != extra: print("Falha: não há espaço contíguo."); return
+    else:
+        # Para encadeada e indexada, pega blocos livres quaisquer
+        livres = self.disco.livres()
+        if len(livres) < extra: print("Falha: não há blocos livres."); return
+        novos = livres[:extra]
+    for b in novos: self.disco.blocos[b] = nome  # Marca novos blocos ocupados
+    arq.blocos += novos                          # Adiciona aos blocos do arquivo
+    arq.tamanho += extra                         # Atualiza tamanho
+    print(f"Arquivo '{nome}' estendido ({m}): novos blocos {novos}")
