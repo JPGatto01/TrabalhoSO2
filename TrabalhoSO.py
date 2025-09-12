@@ -102,3 +102,20 @@ class SistemaArquivos:
         print("\n--- Disco ---")
         print(" ".join(f"[{i}:{b if b else 'LIVRE'}]" for i, b in enumerate(self.disco.blocos) ))
         print(f"Livres: {len(self.disco.livres())} | Ocupados: {len(self.disco.ocupados())}")
+
+     # Alocacao contígua: busca espaço sequencial livre
+    def _contigua(self, t):
+        for i in range(self.disco.tamanho - t + 1):
+            if all(self.disco.blocos[j] is None for j in range(i, i + t)):
+                return list(range(i, i + t))
+        return None
+
+    # Alocacao encadeada: pega qualquer bloco livre
+    def _encadeada(self, t):
+        livres = self.disco.livres()
+        return livres[:t] if len(livres) >= t else None
+
+    # Alocacao indexada: um bloco para índice, o resto para dados
+    def _indexada(self, t):
+        livres = self.disco.livres()
+        return (livres[0], livres[1:t+1]) if len(livres) >= t+1 else None
