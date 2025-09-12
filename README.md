@@ -14,7 +14,7 @@ Contígua:
 os arquivos serão alocados em blocos sequenciais. Se não houver espaço contínuo, a operação falha.
 
 Encadeada: 
-cada arquivo deverá ser representado como uma lista de blocos ligados por ponteiros. O diretório guarda apenas o primeiro bloco.
+cada arquivo deverá ser representado como uma lista de blocos ligados por ponteiros.
 
 Indexada: 
 cada arquivo vai possuir um bloco de índice que lista os blocos de dados. No terminal, os blocos do disco serão exibidos como uma sequência numerada, com marcações indicando quais pertencem a cada arquivo.
