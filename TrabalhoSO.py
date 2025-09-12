@@ -96,3 +96,9 @@ class SistemaArquivos:
             else:
                 ini = a.blocos[0] if a.blocos else "-"
                 print(f"{a.nome} | {a.tamanho} | {ini} | {a.blocos}")
+    
+    # Exibe o estado atual do disco (blocos livres e ocupados)
+    def exibir_disco(self):
+        print("\n--- Disco ---")
+        print(" ".join(f"[{i}:{b if b else 'LIVRE'}]" for i, b in enumerate(self.disco.blocos) ))
+        print(f"Livres: {len(self.disco.livres())} | Ocupados: {len(self.disco.ocupados())}")
