@@ -1,4 +1,5 @@
 Simulador de Sistema de Arquivos - Sistemas Operacionais II
+
 Integrantes da Dupla: João Paulo Gatto de Oliveira - 202553  /  Augusto Rosa - 200849
 
 Descrição do Projeto
