@@ -1,4 +1,3 @@
-# Classe que representa um arquivo no sistema
 class Arquivo:
     def __init__(self, nome, tamanho, metodo, blocos, bloco_indice=None):
         # Inicializa os atributos do arquivo: nome, tamanho, método de alocação, blocos ocupados e bloco índice (se indexada)
@@ -30,14 +29,13 @@ class SistemaArquivos:
             print("Arquivo já existe ou tamanho inválido."); return
         m = self.metodo
         # Seleciona o método de alocação
-        if m == "Alocacao Contigua": blocos = self._contigua(tamanho)
-        elif m == "Alocacao Encadeada": blocos = self._encadeada(tamanho)
-        elif m == "Alocacao Indexada": blocos = self._indexada(tamanho)
-        else: print("Método desconhecido."); return
+        if m == "Alocação Contígua": blocos = self._contigua(tamanho)
+        elif m == "Alocação Encadeada": blocos = self._encadeada(tamanho)
+        elif m == "Alocação Indexada": blocos = self._indexada(tamanho)
         # Se não conseguiu alocar, informa falha
         if not blocos: print("Falha na alocação."); return
         # Para indexada, separa bloco índice e blocos de dados
-        if m == "Alocacao Indexada":
+        if m == "Alocação Indexada":
             idx, dados = blocos
             self.disco.blocos[idx] = nome + "_indice"  # Marca bloco índice
             for b in dados: self.disco.blocos[b] = nome  # Marca blocos de dados
@@ -46,14 +44,14 @@ class SistemaArquivos:
             for b in blocos: self.disco.blocos[b] = nome  # Marca blocos ocupados
             arq = Arquivo(nome, tamanho, m, blocos)       # Cria arquivo
         self.diretorio[nome] = arq  # Adiciona ao diretório
-        print(f"Arquivo '{nome}' criado ({m}): {arq.blocos if m!='Alocacao Indexada' else f'índice {idx}, dados {dados}'}")
+        print(f"Arquivo '{nome}' criado ({m}): {arq.blocos if m!='Alocação Indexada' else f'índice {idx}, dados {dados}'}")
 
     # Estende um arquivo existente, aumentando seu tamanho
     def estender_arquivo(self, nome, extra):
         arq = self.diretorio.get(nome)  # Busca arquivo no diretório
         if not arq or extra <= 0: print("Arquivo não existe ou tamanho inválido."); return
         m = arq.metodo
-        if m == "Alocacao Contigua":
+        if m == "Alocação Contígua":
             # Só pode estender se houver espaço contíguo após o último bloco
             ult = arq.blocos[-1]
             novos = [ult+i for i in range(1, extra+1) if ult+i < self.disco.tamanho and self.disco.blocos[ult+i] is None]
@@ -73,7 +71,7 @@ class SistemaArquivos:
         arq = self.diretorio.pop(nome, None)  # Remove do diretório
         if not arq: print("Arquivo não existe."); return
         for b in arq.blocos: self.disco.blocos[b] = None  # Libera blocos ocupados
-        if arq.metodo == "Alocacao Indexada" and arq.bloco_indice is not None:
+        if arq.metodo == "Alocação Indexada" and arq.bloco_indice is not None:
             self.disco.blocos[arq.bloco_indice] = None    # Libera bloco índice
         print(f"Arquivo '{nome}' deletado.")
 
@@ -83,15 +81,15 @@ class SistemaArquivos:
         if not arq: print("Arquivo não existe."); return
         m = arq.metodo
         print(f"Lendo '{nome}':")
-        if m == "Alocacao Contigua": print("Blocos:", arq.blocos, "| Acesso: rápido")
-        elif m == "Alocacao Encadeada": print("Blocos:", arq.blocos, "| Acesso: lento")
-        elif m == "Alocacao Indexada": print(f"Índice: {arq.bloco_indice} | Blocos: {arq.blocos} | Acesso: intermediário")
+        if m == "Alocação Contígua": print("Blocos:", arq.blocos, "| Acesso: rápido")
+        elif m == "Alocação Encadeada": print("Blocos:", arq.blocos, "| Acesso: lento")
+        elif m == "Alocação Indexada": print(f"Índice: {arq.bloco_indice} | Blocos: {arq.blocos} | Acesso: intermediário")
 
     # Exibe o diretório de arquivos no terminal
     def exibir_diretorio(self):
         print("\n--- Diretório ---")
         for a in self.diretorio.values():
-            if a.metodo == "Alocacao Indexada":
+            if a.metodo == "Alocação Indexada":
                 print(f"{a.nome} | {a.tamanho} | índice {a.bloco_indice} | {a.blocos}")
             else:
                 ini = a.blocos[0] if a.blocos else "-"
@@ -103,19 +101,55 @@ class SistemaArquivos:
         print(" ".join(f"[{i}:{b if b else 'LIVRE'}]" for i, b in enumerate(self.disco.blocos) ))
         print(f"Livres: {len(self.disco.livres())} | Ocupados: {len(self.disco.ocupados())}")
 
-     # Alocacao contígua: busca espaço sequencial livre
+     # Alocação contígua: busca espaço sequencial livre
     def _contigua(self, t):
         for i in range(self.disco.tamanho - t + 1):
             if all(self.disco.blocos[j] is None for j in range(i, i + t)):
                 return list(range(i, i + t))
         return None
 
-    # Alocacao encadeada: pega qualquer bloco livre
+    # Alocação encadeada: pega qualquer bloco livre
     def _encadeada(self, t):
         livres = self.disco.livres()
         return livres[:t] if len(livres) >= t else None
 
-    # Alocacao indexada: um bloco para índice, o resto para dados
+    # Alocação indexada: um bloco para índice, o resto para dados
     def _indexada(self, t):
         livres = self.disco.livres()
         return (livres[0], livres[1:t+1]) if len(livres) >= t+1 else None
+    
+# Função para exibir o menu de opções
+def menu():
+    print("\n--- Simulador SO2 ---")
+    print("1- Criar 2- Estender 3- Deletar 4- Ler 5- Exibir Diretório 6- Exibir Disco 0- Sair")
+
+# Ponto de entrada do programa
+if __name__ == "__main__":
+    tam = int(input("Tamanho do disco: "))
+    m = input("Método (1- Alocação Contígua 2- Alocação Encadeada 3- Alocação Indexada): ")
+    metodo = {"1": "Alocação Contígua", "2": "Alocação Encadeada", "3": "Alocação Indexada"}.get(m, "Alocação Contígua") # Traduz opção
+    so2 = SistemaArquivos(tam, metodo) # Cria sistema de arquivos
+    while True:
+        if(m != "1" and m != "2" and m != "3"):
+            print("Método inválido. ")
+            break
+        menu()
+        print("Método escolhido:", metodo)
+        op = input("Opção: ")  # Solicita opção do usuário
+        if op == "1":
+            nome = input("Nome: "); t = int(input("Tamanho: "))
+            so2.criar_arquivo(nome, t)
+        elif op == "2":
+            nome = input("Nome: "); t = int(input("Extra: "))
+            so2.estender_arquivo(nome, t)
+        elif op == "3":
+            so2.deletar_arquivo(input("Nome: "))
+        elif op == "4":
+            so2.ler_arquivo(input("Nome: "))
+        elif op == "5":
+            so2.exibir_diretorio()
+        elif op == "6":
+            so2.exibir_disco()
+        elif op == "0":
+            break
+        
