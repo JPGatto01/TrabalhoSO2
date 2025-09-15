@@ -151,7 +151,7 @@ if __name__ == "__main__":
             nome = input("Nome: "); t = int(input("Tamanho do arquivo (KB): "))
             so2.criar_arquivo(nome, t)
         elif op == "2":
-            nome = input("Nome: "); t = int(input("Extra: (em blocos): "))
+            nome = input("Nome: "); t = int(input("Extra: (KB): "))
             so2.estender_arquivo(nome, t)
         elif op == "3":
             so2.deletar_arquivo(input("Nome: "))
