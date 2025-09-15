@@ -56,33 +56,36 @@ class SistemaArquivos:
         print(f"Arquivo '{nome}' criado ({m}): blocos {arq.blocos}, frag interna: {frag_interna} KB")
 
     # Estende um arquivo existente, aumentando seu tamanho
-    def estender_arquivo(self, nome, extra):
-        arq = self.diretorio.get(nome)  # Busca arquivo no diretório
-        if not arq or extra <= 0: print("Arquivo não existe ou tamanho inválido."); return
+    def estender_arquivo(self, nome, extra_kb):
+        arq = self.diretorio.get(nome)
+        if not arq or extra_kb <= 0: 
+            print("Arquivo não existe ou tamanho inválido."); 
+            return
+
+        # Calcula blocos necessários e fragmentação interna nova
+        blocos_necessarios = math.ceil(extra_kb / self.bloco_tam)
+        frag_interna = blocos_necessarios * self.bloco_tam - extra_kb
+
         m = arq.metodo
         if m == "Alocação Contígua":
-            # Só pode estender se houver espaço contíguo após o último bloco
             ult = arq.blocos[-1]
-            novos = [ult+i for i in range(1, extra+1) if ult+i < self.disco.tamanho and self.disco.blocos[ult+i] is None]
-            if len(novos) != extra: print("Falha: não há espaço contíguo."); return
+            novos = [ult+i for i in range(1, blocos_necessarios+1) 
+                     if ult+i < self.disco.tamanho and self.disco.blocos[ult+i] is None]
+            if len(novos) != blocos_necessarios: 
+                print("Falha: não há espaço contíguo."); 
+                return
         else:
-            # Para encadeada e indexada, pega blocos livres quaisquer
             livres = self.disco.livres()
-            if len(livres) < extra: print("Falha: não há blocos livres."); return
-            novos = livres[:extra]
-        for b in novos: self.disco.blocos[b] = nome  # Marca novos blocos ocupados
-        arq.blocos += novos                          # Adiciona aos blocos do arquivo
-        arq.tamanho += extra                         # Atualiza tamanho
-        print(f"Arquivo '{nome}' estendido ({m}): novos blocos {novos}")
+            if len(livres) < blocos_necessarios: 
+                print("Falha: não há blocos livres."); 
+                return
+            novos = livres[:blocos_necessarios]
 
-    # Deleta um arquivo, liberando seus blocos
-    def deletar_arquivo(self, nome):
-        arq = self.diretorio.pop(nome, None)  # Remove do diretório
-        if not arq: print("Arquivo não existe."); return
-        for b in arq.blocos: self.disco.blocos[b] = None  # Libera blocos ocupados
-        if arq.metodo == "Alocação Indexada" and arq.bloco_indice is not None:
-            self.disco.blocos[arq.bloco_indice] = None    # Libera bloco índice
-        print(f"Arquivo '{nome}' deletado.")
+        for b in novos: self.disco.blocos[b] = nome
+        arq.blocos += novos
+        arq.tamanho += extra_kb
+        arq.frag_interna = frag_interna  # Atualiza fragmentação interna
+        print(f"Arquivo '{nome}' estendido ({m}): novos blocos {novos}, frag interna: {frag_interna} KB")
 
     # Lê um arquivo, mostrando os blocos acessados e tempo de acesso simulado
     def ler_arquivo(self, nome):
@@ -151,7 +154,7 @@ if __name__ == "__main__":
             nome = input("Nome: "); t = int(input("Tamanho do arquivo (KB): "))
             so2.criar_arquivo(nome, t)
         elif op == "2":
-            nome = input("Nome: "); t = int(input("Extra: (KB): "))
+            nome = input("Nome: "); t = int(input("Extra (KB): "))
             so2.estender_arquivo(nome, t)
         elif op == "3":
             so2.deletar_arquivo(input("Nome: "))
