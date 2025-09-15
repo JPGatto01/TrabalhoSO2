@@ -1,8 +1,12 @@
+import math
+
+# Classe que representa um arquivo no sistema
 class Arquivo:
-    def __init__(self, nome, tamanho, metodo, blocos, bloco_indice=None):
+    def __init__(self, nome, tamanho, metodo, blocos, bloco_indice=None, frag_interna=0):
         # Inicializa os atributos do arquivo: nome, tamanho, método de alocação, blocos ocupados e bloco índice (se indexada)
         self.nome, self.tamanho, self.metodo = nome, tamanho, metodo
         self.blocos, self.bloco_indice = blocos, bloco_indice
+        self.frag_interna = frag_interna  # Fragmentação interna em KB
 
 # Classe que representa o disco, composto por blocos
 class Disco:
@@ -17,10 +21,11 @@ class Disco:
 
 # Classe principal do sistema de arquivos
 class SistemaArquivos:
-    def __init__(self, tamanho, metodo):
+    def __init__(self, tamanho, metodo, bloco_tam=4):
         self.disco = Disco(tamanho)  # Cria o disco com o tamanho informado
         self.metodo = metodo         # Método de alocação escolhido
-        self.diretorio = {}          # Diretório: dicionário de arquivos criados
+        self.diretorio = {}  
+        self.bloco_tam = bloco_tam   # Diretório: dicionário de arquivos criados
 
 # Cria um novo arquivo no sistema
     def criar_arquivo(self, nome, tamanho):
@@ -28,10 +33,14 @@ class SistemaArquivos:
         if nome in self.diretorio or tamanho <= 0:
             print("Arquivo já existe ou tamanho inválido."); return
         m = self.metodo
+
+        blocos_necessarios = math.ceil(tamanho / self.bloco_tam)
+        frag_interna = blocos_necessarios * self.bloco_tam - tamanho
+
         # Seleciona o método de alocação
-        if m == "Alocação Contígua": blocos = self._contigua(tamanho)
-        elif m == "Alocação Encadeada": blocos = self._encadeada(tamanho)
-        elif m == "Alocação Indexada": blocos = self._indexada(tamanho)
+        if m == "Alocação Contígua": blocos = self._contigua(blocos_necessarios)
+        elif m == "Alocação Encadeada": blocos = self._encadeada(blocos_necessarios)
+        elif m == "Alocação Indexada": blocos = self._indexada(blocos_necessarios)
         # Se não conseguiu alocar, informa falha
         if not blocos: print("Falha na alocação."); return
         # Para indexada, separa bloco índice e blocos de dados
@@ -39,12 +48,12 @@ class SistemaArquivos:
             idx, dados = blocos
             self.disco.blocos[idx] = nome + "_indice"  # Marca bloco índice
             for b in dados: self.disco.blocos[b] = nome  # Marca blocos de dados
-            arq = Arquivo(nome, tamanho, m, dados, idx)  # Cria arquivo
+            arq = Arquivo(nome, tamanho, m, dados, idx, frag_interna)  # Cria arquivo
         else:
             for b in blocos: self.disco.blocos[b] = nome  # Marca blocos ocupados
-            arq = Arquivo(nome, tamanho, m, blocos)       # Cria arquivo
+            arq = Arquivo(nome, tamanho, m, blocos, frag_interna=frag_interna)       # Cria arquivo
         self.diretorio[nome] = arq  # Adiciona ao diretório
-        print(f"Arquivo '{nome}' criado ({m}): {arq.blocos if m!='Alocação Indexada' else f'índice {idx}, dados {dados}'}")
+        print(f"Arquivo '{nome}' criado ({m}): blocos {arq.blocos}, frag interna: {frag_interna} KB")
 
     # Estende um arquivo existente, aumentando seu tamanho
     def estender_arquivo(self, nome, extra):
@@ -82,7 +91,9 @@ class SistemaArquivos:
         m = arq.metodo
         print(f"Lendo '{nome}':")
         if m == "Alocação Contígua": print("Blocos:", arq.blocos, "| Acesso: rápido")
-        elif m == "Alocação Encadeada": print("Blocos:", arq.blocos, "| Acesso: lento")
+        elif m == "Alocação Encadeada": 
+            cadeia = " -> ".join(str(b) for b in arq.blocos) + " -> FIM"
+            print("Encadeamento:", cadeia, "| Acesso: lento")
         elif m == "Alocação Indexada": print(f"Índice: {arq.bloco_indice} | Blocos: {arq.blocos} | Acesso: intermediário")
 
     # Exibe o diretório de arquivos no terminal
@@ -90,10 +101,10 @@ class SistemaArquivos:
         print("\n--- Diretório ---")
         for a in self.diretorio.values():
             if a.metodo == "Alocação Indexada":
-                print(f"{a.nome} | {a.tamanho} | índice {a.bloco_indice} | {a.blocos}")
+                print(f"{a.nome} | {a.tamanho}KB | índice {a.bloco_indice} | {a.blocos} | frag interna: {a.frag_interna} KB")
             else:
                 ini = a.blocos[0] if a.blocos else "-"
-                print(f"{a.nome} | {a.tamanho} | {ini} | {a.blocos}")
+                print(f"{a.nome} | {a.tamanho}KB | {ini} | {a.blocos} | frag interna: {a.frag_interna} KB")
     
     # Exibe o estado atual do disco (blocos livres e ocupados)
     def exibir_disco(self):
@@ -137,10 +148,10 @@ if __name__ == "__main__":
         print("Método escolhido:", metodo)
         op = input("Opção: ")  # Solicita opção do usuário
         if op == "1":
-            nome = input("Nome: "); t = int(input("Tamanho: "))
+            nome = input("Nome: "); t = int(input("Tamanho do arquivo (KB): "))
             so2.criar_arquivo(nome, t)
         elif op == "2":
-            nome = input("Nome: "); t = int(input("Extra: "))
+            nome = input("Nome: "); t = int(input("Extra: (em blocos): "))
             so2.estender_arquivo(nome, t)
         elif op == "3":
             so2.deletar_arquivo(input("Nome: "))
@@ -152,4 +163,3 @@ if __name__ == "__main__":
             so2.exibir_disco()
         elif op == "0":
             break
-        
