@@ -98,7 +98,26 @@ class SistemaArquivos:
             cadeia = " -> ".join(str(b) for b in arq.blocos) + " -> FIM"
             print("Encadeamento:", cadeia, "| Acesso: lento")
         elif m == "Alocação Indexada": print(f"Índice: {arq.bloco_indice} | Blocos: {arq.blocos} | Acesso: intermediário")
+    # Deleta um arquivo do sistema e libera os blocos no disco
+    def deletar_arquivo(self, nome):
+        arq = self.diretorio.get(nome)
+        if not arq: 
+            print("Arquivo não existe no diretório.")
+            return
 
+        # Libera os blocos de dados no disco
+        for b in arq.blocos:
+            self.disco.blocos[b] = None
+            
+        # Se for alocação indexada, precisamos liberar o bloco de índice também
+        if arq.metodo == "Alocação Indexada" and arq.bloco_indice is not None:
+            self.disco.blocos[arq.bloco_indice] = None
+
+        # Remove o arquivo do diretório
+        del self.diretorio[nome]
+        
+        print(f"Arquivo '{nome}' deletado com sucesso! Espaço liberado no disco.")
+        
     # Exibe o diretório de arquivos no terminal
     def exibir_diretorio(self):
         print("\n--- Diretório ---")
