@@ -1,4 +1,4 @@
-import unittest
+iimport unittest
 import subprocess
 import io
 from unittest.mock import patch
@@ -19,6 +19,55 @@ class TestDisco(unittest.TestCase):
         self.disco.blocos[0] = "arq"
         self.assertEqual(self.disco.ocupados(), [0])
         self.assertEqual(self.disco.livres(), [1, 2, 3, 4])
+
+
+# ---------------------------------------------------------
+# 1.1 TESTES DE UNIDADE: Métodos privados de alocação (_contigua, _encadeada, _indexada)
+#     Testados isoladamente, sem passar por criar_arquivo, para verificar
+#     apenas a lógica de seleção de blocos (classes de equivalência: sucesso e falha)
+# ---------------------------------------------------------
+class TestMetodosPrivadosAlocacao(unittest.TestCase):
+    def setUp(self):
+        # O método de alocação do SO não importa aqui, pois chamamos os métodos privados direto
+        self.so = SistemaArquivos(tamanho=5, metodo="Alocação Contígua", bloco_tam=4)
+
+    def test_contigua_sucesso(self):
+        self.assertEqual(self.so._contigua(3), [0, 1, 2])
+
+    def test_contigua_falha_sem_espaco_sequencial(self):
+        # Disco de 5 blocos (0-4). Bloqueando o bloco 2 (meio do disco),
+        # não há mais nenhuma sequência livre de 3 blocos consecutivos:
+        # livres são 0,1,3,4 -> nenhuma sequência de tamanho 3 é possível.
+        self.so.disco.blocos[2] = "x"
+        self.assertIsNone(self.so._contigua(3))
+
+    def test_contigua_falha_disco_pequeno(self):
+        # Pede mais blocos do que o disco tem
+        self.assertIsNone(self.so._contigua(6))
+
+    def test_encadeada_sucesso(self):
+        self.so.disco.blocos[0] = "x"
+        self.so.disco.blocos[2] = "y"
+        # Livres: 1, 3, 4 -> pega os 2 primeiros livres
+        self.assertEqual(self.so._encadeada(2), [1, 3])
+
+    def test_encadeada_falha_sem_blocos_livres(self):
+        for i in range(5):
+            self.so.disco.blocos[i] = "x"
+        self.assertIsNone(self.so._encadeada(1))
+
+    def test_indexada_sucesso(self):
+        # 5 blocos livres, pede 2 de dados -> precisa de 1 (índice) + 2 (dados) = 3
+        idx, dados = self.so._indexada(2)
+        self.assertEqual(idx, 0)
+        self.assertEqual(dados, [1, 2])
+
+    def test_indexada_falha_sem_espaco_para_indice_e_dados(self):
+        # Só há espaço para os dados, mas não para o bloco de índice extra
+        for i in range(4):
+            self.so.disco.blocos[i] = "x"
+        # 1 bloco livre (índice 4); pede 1 bloco de dados -> precisaria de 1+1=2
+        self.assertIsNone(self.so._indexada(1))
 
 
 # ---------------------------------------------------------
@@ -54,6 +103,24 @@ class TestAlocacaoEncadeada(unittest.TestCase):
         self.so.estender_arquivo("a1", 8) # Deve pegar blocos 3 e 4
         self.assertEqual(self.so.diretorio["a1"].blocos, [1, 3, 4])
 
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_ler_arquivo_encadeado(self, mock_stdout):
+        self.so.criar_arquivo("a1", 8)  # 2 blocos encadeados
+        self.so.ler_arquivo("a1")
+        saida = mock_stdout.getvalue()
+        self.assertIn("Encadeamento:", saida)
+        self.assertIn("-> FIM", saida)
+        self.assertIn("Acesso: lento", saida)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_falha_extensao_sem_blocos_livres(self, mock_stdout):
+        # Disco de 5 blocos: ocupa todos exceto os usados pelo próprio arquivo
+        self.so.criar_arquivo("a1", 4)  # usa 1 bloco, restam 4 livres
+        for i in self.so.disco.livres():
+            self.so.disco.blocos[i] = "outro"  # ocupa todo o resto do disco
+        self.so.estender_arquivo("a1", 4)  # não há bloco livre para estender
+        self.assertIn("Falha: não há blocos livres", mock_stdout.getvalue())
+
 class TestAlocacaoIndexada(unittest.TestCase):
     def setUp(self):
         self.so = SistemaArquivos(tamanho=5, metodo="Alocação Indexada", bloco_tam=4)
@@ -69,6 +136,26 @@ class TestAlocacaoIndexada(unittest.TestCase):
         self.so.deletar_arquivo("a1")
         self.assertNotIn("a1", self.so.diretorio)
         self.assertEqual(len(self.so.disco.livres()), 5)
+
+    def test_estender_arquivo_indexado(self):
+        # Indexada usa a mesma lógica de "qualquer bloco livre" que a Encadeada na extensão
+        self.so.criar_arquivo("a1", 4)  # índice=0, dados=[1]
+        self.so.estender_arquivo("a1", 4)  # deve pegar o próximo bloco livre (2)
+        self.assertEqual(self.so.diretorio["a1"].blocos, [1, 2])
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_ler_arquivo_indexado(self, mock_stdout):
+        self.so.criar_arquivo("a1", 4)
+        self.so.ler_arquivo("a1")
+        saida = mock_stdout.getvalue()
+        self.assertIn("Acesso: intermediário", saida)
+        self.assertIn("Índice: 0", saida)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_exibir_diretorio_indexado(self, mock_stdout):
+        self.so.criar_arquivo("a1", 4)
+        self.so.exibir_diretorio()
+        self.assertIn("índice 0", mock_stdout.getvalue())
 
 
 # ---------------------------------------------------------
@@ -107,6 +194,26 @@ class TestValidacoesESaidas(unittest.TestCase):
         self.assertIn("--- Diretório ---", mock_stdout.getvalue())
         self.assertIn("a1 |", mock_stdout.getvalue())
 
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_exibir_disco(self, mock_stdout):
+        self.so.criar_arquivo("a1", 4)
+        self.so.exibir_disco()
+        saida = mock_stdout.getvalue()
+        self.assertIn("--- Disco ---", saida)
+        self.assertIn("LIVRE", saida)
+        self.assertIn("Livres: 9", saida)   # 10 blocos - 1 ocupado
+        self.assertIn("Ocupados: 1", saida)
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_ler_arquivo_inexistente(self, mock_stdout):
+        self.so.ler_arquivo("fantasma")
+        self.assertIn("Arquivo não existe", mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_deletar_arquivo_inexistente(self, mock_stdout):
+        self.so.deletar_arquivo("fantasma")
+        self.assertIn("Arquivo não existe no diretório", mock_stdout.getvalue())
+
 
 # ---------------------------------------------------------
 # 4. TESTES DE SISTEMA: CLI Completa
@@ -131,6 +238,18 @@ class TestSistemaCompletoCLI(unittest.TestCase):
         self.assertIn("Encadeamento:", saida)     # Opção 4 (Ler - Encadeada)
         self.assertIn("--- Diretório ---", saida) # Opção 5
         self.assertIn("--- Disco ---", saida)     # Opção 6
+
+    def test_fluxo_criar_e_deletar_pelo_menu(self):
+        """Garante que a opção 3 (Deletar) funciona pelo fluxo real da CLI."""
+        # Tamanho: 10, Método: 1 (Contígua)
+        # 1(Criar) arq1 4KB -> 3(Deletar) arq1 -> 5(Diretório, deve estar vazio) -> 0(Sair)
+        entradas = "10\n1\n1\narq1\n4\n3\narq1\n5\n0\n"
+        proc = subprocess.run(['python', 'TrabalhoSO.py'], input=entradas, text=True, capture_output=True)
+
+        saida = proc.stdout
+        self.assertIn("Arquivo 'arq1' criado", saida)
+        self.assertIn("Arquivo 'arq1' deletado com sucesso", saida)
+        self.assertIn("--- Diretório ---", saida)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
